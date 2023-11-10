@@ -4,7 +4,7 @@ import com.a405.gamept.game.dto.command.DeathCheckCommandDto;
 import com.a405.gamept.game.dto.command.FightResultGetCommandDto;
 import com.a405.gamept.game.dto.command.MonsterGetCommandDto;
 import com.a405.gamept.game.dto.command.SkillSuccessCommandDto;
-import com.a405.gamept.game.dto.command.TmpPlayerCommandDto;
+import com.a405.gamept.game.dto.command.PlayerExpChangeCommandDto;
 import com.a405.gamept.game.dto.response.FightResultGetResponseDto;
 import com.a405.gamept.game.dto.response.MonsterGetResponseDto;
 import com.a405.gamept.game.entity.*;
@@ -424,9 +424,9 @@ public class FightServiceImpl implements FightService {
             // 전투 종료
             result.append(player.getNickname()).append(" 은 적을 ").append(damage).append("무사히 쓰러트렸다!!!\n");
             endYn = "Y";
-            TmpPlayerCommandDto tmpPlayerCommandDto = getExp(player, fightingEnermy);
-            result.append(tmpPlayerCommandDto.prompt());
-            player = tmpPlayerCommandDto.player();
+            PlayerExpChangeCommandDto playerExpChangeCommandDto = getExp(player, fightingEnermy);
+            result.append(playerExpChangeCommandDto.prompt());
+            player = playerExpChangeCommandDto.player();
             deleteMonster(fightingEnermy);
         }
 
@@ -470,10 +470,10 @@ public class FightServiceImpl implements FightService {
             // 전투 종료
             result.append(player.getNickname()).append(" 은 적을 무사히 쓰러트렸다!!!\n");
             endYn = "Y";
-            TmpPlayerCommandDto tmpPlayerCommandDto = getExp(player, fightingEnermy);
-            result.append(tmpPlayerCommandDto.prompt());
+            PlayerExpChangeCommandDto playerExpChangeCommandDto = getExp(player, fightingEnermy);
+            result.append(playerExpChangeCommandDto.prompt());
             log.info("경험치 양 전 : "+player.getExp());
-            player = tmpPlayerCommandDto.player();
+            player = playerExpChangeCommandDto.player();
             log.info("경험치 양 후 : "+player.getExp());
             deleteMonster(fightingEnermy);
         }else {
@@ -658,7 +658,7 @@ public class FightServiceImpl implements FightService {
     }
 
     //경험치 획득 처리
-    public TmpPlayerCommandDto getExp(Player player, FightingEnermy fightingEnermy){
+    public PlayerExpChangeCommandDto getExp(Player player, FightingEnermy fightingEnermy){
         StringBuilder result = new StringBuilder();
         int playerLevel = player.getLevel();
         int statPoint = player.getStatPoint();
@@ -700,7 +700,7 @@ public class FightServiceImpl implements FightService {
                 .build();
 
         playerRedisRepository.save(player);
-        return new TmpPlayerCommandDto(player, result.toString());
+        return new PlayerExpChangeCommandDto(player, result.toString());
     }
 
     public void deleteMonster(FightingEnermy fightingEnermy){
