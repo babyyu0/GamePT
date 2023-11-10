@@ -1,14 +1,13 @@
 package com.a405.gamept.game.dto.command;
 
-import com.a405.gamept.game.dto.request.ItemSetRequestDto;
+import com.a405.gamept.game.dto.request.MonsterSetRequestDto;
 import com.a405.gamept.game.util.RegexPatterns;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import lombok.AccessLevel;
 import lombok.Builder;
 
-@Builder(access = AccessLevel.PRIVATE)
-public record ItemSetCommandDto (
+@Builder
+public record MonsterSetCommandDto(
         @NotBlank(message = "게임이 존재하지 않습니다.")
         @Pattern(regexp = RegexPatterns.GAME, message = "게임이 올바르지 않습니다.")
         String gameCode,
@@ -16,10 +15,10 @@ public record ItemSetCommandDto (
         @Pattern(regexp = RegexPatterns.PLAYER, message = "플레이어가 올바르지 않습니다.")
         String playerCode
 ) {
-    public static ItemSetCommandDto from(ItemSetRequestDto itemSetRequestDto) {
-        return ItemSetCommandDto.builder()
-                .gameCode(itemSetRequestDto.gameCode())
-                .playerCode(itemSetRequestDto.playerCode())
+    public static MonsterSetCommandDto from(MonsterSetRequestDto monsterSetRequestDto) {
+        return MonsterSetCommandDto.builder()
+                .gameCode(monsterSetRequestDto.gameCode())
+                .playerCode(monsterSetRequestDto.playerCode())
                 .build();
     }
 }
