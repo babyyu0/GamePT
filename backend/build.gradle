@@ -57,6 +57,9 @@ dependencies {
 
 	// korean-summarizer
 	implementation 'com.github.tuguri8:korean-summarizer:0.1.2'
+
+	// SSE Webflux
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 }
 
 tasks.named('test') {

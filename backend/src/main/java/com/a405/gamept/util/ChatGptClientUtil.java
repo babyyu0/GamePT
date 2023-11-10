@@ -3,13 +3,21 @@ package com.a405.gamept.util;
 import com.a405.gamept.play.entity.Prompt;
 import com.a405.gamept.util.dto.request.ChatGptRequestDto;
 import com.a405.gamept.util.dto.request.ChatGptMessage;
+import com.a405.gamept.util.dto.request.ChatGptRequestDtoForStream;
 import com.a405.gamept.util.dto.response.ChatGptResponseDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.net.URI;
@@ -121,6 +129,87 @@ public class ChatGptClientUtil {
         }
 
         return null;
+    }
+
+    /**
+     * enterPromptForStream <br/><br/>
+     *
+     * 입력한 프롬프트를 ChatGPT에 전송하고, ChatGPT로부터 온 출력 결과를 반환.
+     * @param prompt ChatGPT에 입력할 프롬프트
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public Flux<String> enterPromptForStream(String prompt) throws JsonProcessingException {
+        int mSize = 1;
+        if (prompt != null && !prompt.equals("")) mSize++;
+        ChatGptMessage[] messages = new ChatGptMessage[mSize];
+
+        int mIndex = 0;
+        messages[mIndex++] = new ChatGptMessage("system", PROMPT_FOR_SETTING);
+        if (prompt != null && !prompt.equals(""))
+            messages[mIndex++] = new ChatGptMessage("user", prompt);
+
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ChatGptRequestDtoForStream chatGptRequestDtoForStream = new ChatGptRequestDtoForStream(model, messages, 1, 1024, true);
+
+        String input = mapper.writeValueAsString(chatGptRequestDtoForStream);
+
+        WebClient client = WebClient.builder()
+                .baseUrl(uri)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .defaultHeader("Authorization", "Bearer " + key)
+                .build();
+
+        Flux<String> eventStream = client.post()
+                .bodyValue(input)
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .retrieve()
+                .bodyToFlux(String.class);
+        return eventStream;
+    }
+
+    public SseEmitter enterPromptForSse(String prompt) throws JsonProcessingException {
+        int mSize = 1;
+        if (prompt != null && !prompt.equals("")) mSize++;
+        ChatGptMessage[] messages = new ChatGptMessage[mSize];
+
+        int mIndex = 0;
+        messages[mIndex++] = new ChatGptMessage("system", PROMPT_FOR_SETTING);
+        if (prompt != null && !prompt.equals(""))
+            messages[mIndex++] = new ChatGptMessage("user", prompt);
+
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        ChatGptRequestDtoForStream chatGptRequestDtoForStream = new ChatGptRequestDtoForStream(model, messages, 1, 1024, true);
+
+        String input = mapper.writeValueAsString(chatGptRequestDtoForStream);
+
+        SseEmitter emitter = new SseEmitter((long) (5 * 60 * 1000));
+        WebClient client = WebClient.create();
+
+        client.post().uri(uri)
+                .header("Content-Type", "application/json")
+                .header("Authorization", key)
+                .body(BodyInserters.fromValue(chatGptRequestDtoForStream))
+                .exchangeToFlux(response -> response.bodyToFlux(String.class))
+                .doOnNext(line -> {
+                    try {
+                        if (line.equals("[DONE]")) {
+                            emitter.complete();
+                            return;
+                        }
+                        emitter.send(SseEmitter.event().data(line));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .doOnError(emitter::completeWithError)
+                .doOnComplete(emitter::complete)
+                .subscribe();
+        return emitter;
     }
 
 }

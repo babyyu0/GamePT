@@ -10,9 +10,11 @@ import com.a405.gamept.play.repository.GameRedisRepository;
 import com.a405.gamept.util.ChatGptClientUtil;
 import com.a405.gamept.util.KoreanSummarizerUtil;
 import com.a405.gamept.util.ValidateUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Random;
@@ -59,6 +61,12 @@ public class PromptServiceImpl implements PromptService {
 
         return promptResultGetResponseDto;
     }
+
+    @Override
+    public Flux<String> getPromptResultForStream(PromptResultGetCommandDto promptResultGetCommandDto) throws JsonProcessingException {
+        return null;
+    }
+
 
     /**
      * savePromptLog <br/><br/>
