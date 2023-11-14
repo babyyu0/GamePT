@@ -1,8 +1,6 @@
 package com.a405.gamept.game.service;
 
-import com.a405.gamept.game.dto.command.MonsterGetCommandDto;
-import com.a405.gamept.game.dto.command.MonsterSetCommandDto;
-import com.a405.gamept.game.dto.command.PromptResultGetCommandDto;
+import com.a405.gamept.game.dto.command.*;
 import com.a405.gamept.game.dto.response.PromptResultGetResponseDto;
 import com.a405.gamept.game.util.enums.GameErrorMessage;
 import com.a405.gamept.game.util.exception.GameException;
@@ -16,16 +14,17 @@ import com.a405.gamept.util.KoreanSummarizerUtil;
 import com.a405.gamept.util.ValidateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PromptServiceImpl implements PromptService {
 
     private final EventService eventService;
@@ -38,8 +37,9 @@ public class PromptServiceImpl implements PromptService {
     private final int MAX_PREV_PROMPT_NUMBER = 6;
 
     @Override
+    @Deprecated
     @Transactional
-    public PromptResultGetResponseDto getPrmoptResult(PromptResultGetCommandDto promptResultGetCommandDto) {
+    public PromptResultGetResponseDto getPromptResult(PromptResultGetCommandDto promptResultGetCommandDto) {
         // Game 객체
         Game game = gameRedisRepository.findById(promptResultGetCommandDto.gameCode())
                 .orElseThrow(() -> new GameException(GameErrorMessage.GAME_NOT_FOUND));
@@ -92,10 +92,66 @@ public class PromptServiceImpl implements PromptService {
     }
 
     @Override
-    public Flux<String> getPromptResultForStream(PromptResultGetCommandDto promptResultGetCommandDto) throws JsonProcessingException {
-        return null;
+    @Deprecated
+    public Flux<String> getPromptResultForStream(PromptResultForStreamGetCommandDto promptResultForStreamGetCommandDto) throws JsonProcessingException {
+        return chatGptClientUtil.enterPromptForStream(
+                promptResultForStreamGetCommandDto.prompt(),
+                promptResultForStreamGetCommandDto.memory(),
+                promptResultForStreamGetCommandDto.promptList());
     }
 
+    @Override
+    public SseEmitter getPromptResultForSse(PromptResultForStreamGetCommandDto promptResultForStreamGetCommandDto) throws JsonProcessingException {
+        // Game 객체
+        Game game = gameRedisRepository.findById(promptResultForStreamGetCommandDto.gameCode())
+                .orElseThrow(() -> new GameException(GameErrorMessage.GAME_NOT_FOUND));
+        // Player 객체
+        Player player = playerRedisRepository.findById(promptResultForStreamGetCommandDto.playerCode())
+                .orElseThrow(() -> new GameException(GameErrorMessage.PLAYER_NOT_FOUND));
+
+        // 플레이어가 방에 존재하지 않을 경우
+        if(!ValidateUtil.validatePlayer(player.getCode(), game.getPlayerList())) {
+            throw new GameException(GameErrorMessage.PLAYER_NOT_FOUND);
+        }
+
+        // 이벤트 트리거 프롬프트 추가
+        PromptResultForStreamGetCommandDto promptResultCommandDtoForEvent = eventService.pickAtRandomEventForStream(promptResultForStreamGetCommandDto);
+
+        // ChatGPT에게 프롬프트 요청
+        // ChatGPT로부터 스트림 형태로 데이터를 전달받음
+        Object[] result = chatGptClientUtil.enterPromptForSse(
+                promptResultForStreamGetCommandDto.prompt(),
+                promptResultForStreamGetCommandDto.memory(),
+                promptResultForStreamGetCommandDto.promptList());
+        // 결합된 프롬프트 출력을 받음
+        String output = (String) result[1];
+
+        return (SseEmitter) result[0];
+    }
+
+    @Override
+    public PrevPromptResultsGetCommandDto getPrevPromptResults(String gameCode) throws GameException {
+        Game game = gameRedisRepository.findById(gameCode)
+                .orElseThrow(() -> new GameException(GameErrorMessage.GAME_NOT_FOUND));
+        return PrevPromptResultsGetCommandDto.of(game);
+    }
+
+//    private PromptResultForStreamGetCommandDto addRandomEvent(PromptResultForStreamGetCommandDto promptResultForStreamGetCommandDto) {
+//        // Game 객체
+//        Game game = gameRedisRepository.findById(promptResultForStreamGetCommandDto.gameCode())
+//                .orElseThrow(() -> new GameException(GameErrorMessage.GAME_NOT_FOUND));
+//        // Player 객체
+//        Player player = playerRedisRepository.findById(promptResultForStreamGetCommandDto.playerCode())
+//                .orElseThrow(() -> new GameException(GameErrorMessage.PLAYER_NOT_FOUND));
+//
+//        // 플레이어가 방에 존재하지 않을 경우
+//        if(!ValidateUtil.validatePlayer(player.getCode(), game.getPlayerList())) {
+//            throw new GameException(GameErrorMessage.PLAYER_NOT_FOUND);
+//        }
+//
+//        // 이벤트 트리거 프롬프트 추가
+//        return eventService.pickAtRandomEvent(promptResultGetCommandDto, game);
+//    }
 
     /**
      * savePromptLog <br/><br/>

@@ -2,6 +2,7 @@ package com.a405.gamept.game.service;
 
 import com.a405.gamept.game.dto.command.ActCommandDto;
 import com.a405.gamept.game.dto.command.EventCommandDto;
+import com.a405.gamept.game.dto.command.PromptResultForStreamGetCommandDto;
 import com.a405.gamept.game.dto.command.PromptResultGetCommandDto;
 import com.a405.gamept.game.dto.response.PromptResultGetResponseDto;
 import com.a405.gamept.game.entity.Act;
@@ -150,6 +151,32 @@ public class EventServiceImpl implements EventService {
         EventCommandDto eventCommandDto = EventCommandDto.from(occuredEvent, acts);
 
         return PromptResultGetResponseDto.from(promptResultGetCommandDto, eventCommandDto);
+    }
+
+    @Override
+    public PromptResultForStreamGetCommandDto pickAtRandomEventForStream(PromptResultForStreamGetCommandDto promptResultForStreamGetCommandDto) {
+        // 게임 코드에 따른 게임 객체
+        Game game = gameRedisRepository.findById(promptResultForStreamGetCommandDto.gameCode())
+                .orElseThrow(() -> new GameException(GameErrorMessage.GAME_NOT_FOUND));
+
+        // 이벤트가 발생하지 않음
+        if (!checkRandomEvent(game.getEventRate())) {
+            // 이벤트 랜덤 발생 확률 증가
+            gameRedisRepository.save(game.toBuilder()
+                    .eventRate(game.getEventRate() + 0.05)
+                    .build());
+            return promptResultForStreamGetCommandDto;
+        }
+
+        // 이벤트가 발생한 경우,
+        // 스토리 코드에 따른 이벤트 리스트
+        List<Event> eventList = eventRepository.findByStoryCode(game.getStoryCode())
+                .orElseThrow(() -> new GameException(GameErrorMessage.EVENT_NOT_FOUND));
+
+        // 이벤트 중 랜덤하게 특정 이벤트 발생
+        Event occuredEvent = occurRandomEvent(eventList);
+        String newPrompt = promptResultForStreamGetCommandDto.prompt() + occuredEvent.getPrompt();
+        return PromptResultForStreamGetCommandDto.from(promptResultForStreamGetCommandDto, newPrompt);
     }
 
     /**

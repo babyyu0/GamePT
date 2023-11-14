@@ -10,8 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(access = AccessLevel.PRIVATE)
 @Slf4j
 public record PromptResultGetRequestDto(
-        @NotBlank(message = "프롬프트가 입력되지 않았습니다.") String prompt,
         @NotBlank(message = "플레이어가 존재하지 않습니다.")
         @Pattern(regexp = RegexPatterns.PLAYER, message = "플레이어가 올바르지 않습니다.")
-        String playerCode
+        String playerCode,
+        @NotBlank(message = "프롬프트가 입력되지 않았습니다.") String prompt
 ) { }

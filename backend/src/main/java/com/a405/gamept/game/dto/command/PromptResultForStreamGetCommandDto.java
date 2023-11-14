@@ -17,6 +17,9 @@ public record PromptResultForStreamGetCommandDto(
         @NotBlank(message = "게임이 존재하지 않습니다.")
         @Pattern(regexp = RegexPatterns.GAME, message = "게임이 올바르지 않습니다.")
         String gameCode,
+        @NotBlank(message = "플레이어가 존재하지 않습니다.")
+        @Pattern(regexp = RegexPatterns.PLAYER, message = "플레이어가 올바르지 않습니다.")
+        String playerCode,
         @NotBlank(message = "프롬프트가 존재하지 않습니다.")
         String prompt,
         @NotBlank(message = "이전 프롬프트 리스트가 존재하지 않습니다.")
@@ -24,12 +27,23 @@ public record PromptResultForStreamGetCommandDto(
         @NotBlank(message = "메모리가 존재하지 않습니다.")
         String memory
 ) {
-    public static PromptResultForStreamGetCommandDto of(Game game, String prompt) {
+    public static PromptResultForStreamGetCommandDto from(String gameCode, PromptResultGetRequestDto promptResultGetRequestDto, PrevPromptResultsGetCommandDto prevPromptResultsGetCommandDto) {
         return PromptResultForStreamGetCommandDto.builder()
-                .gameCode(game.getCode())
-                .prompt(prompt)
-                .promptList(getPromptCommandDtoList(game.getPromptList()))
-                .memory(game.getMemory())
+                .gameCode(gameCode)
+                .playerCode(promptResultGetRequestDto.playerCode())
+                .prompt(promptResultGetRequestDto.prompt())
+                .promptList(prevPromptResultsGetCommandDto.promptList())
+                .memory(prevPromptResultsGetCommandDto.memory())
+                .build();
+    }
+
+    public static PromptResultForStreamGetCommandDto from(PromptResultForStreamGetCommandDto promptResultForStreamGetCommandDto, String newPrompt) {
+        return PromptResultForStreamGetCommandDto.builder()
+                .gameCode(promptResultForStreamGetCommandDto.gameCode())
+                .playerCode(promptResultForStreamGetCommandDto.playerCode())
+                .prompt(newPrompt)
+                .promptList(promptResultForStreamGetCommandDto.promptList())
+                .memory(promptResultForStreamGetCommandDto.memory())
                 .build();
     }
 

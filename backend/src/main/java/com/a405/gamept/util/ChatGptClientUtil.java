@@ -1,9 +1,13 @@
 package com.a405.gamept.util;
 
+import com.a405.gamept.game.dto.command.PromptCommandDto;
+import com.a405.gamept.game.util.enums.GameErrorMessage;
+import com.a405.gamept.game.util.exception.GameException;
 import com.a405.gamept.play.entity.Prompt;
 import com.a405.gamept.util.dto.request.ChatGptRequestDto;
 import com.a405.gamept.util.dto.request.ChatGptMessage;
 import com.a405.gamept.util.dto.request.ChatGptRequestDtoForStream;
+import com.a405.gamept.util.dto.response.ChatGptForStreamResponseDto;
 import com.a405.gamept.util.dto.response.ChatGptResponseDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -13,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -139,13 +144,20 @@ public class ChatGptClientUtil {
      * @throws IOException
      * @throws InterruptedException
      */
-    public Flux<String> enterPromptForStream(String prompt) throws JsonProcessingException {
+    public Flux<String> enterPromptForStream(String prompt, String memory, List<PromptCommandDto> promptList) throws JsonProcessingException {
         int mSize = 1;
         if (prompt != null && !prompt.equals("")) mSize++;
+        if (memory != null && !memory.equals("")) mSize++;
+        mSize += promptList.size();
         ChatGptMessage[] messages = new ChatGptMessage[mSize];
 
         int mIndex = 0;
         messages[mIndex++] = new ChatGptMessage("system", PROMPT_FOR_SETTING);
+        if (memory != null && !memory.equals(""))
+            messages[mIndex++] = new ChatGptMessage("system", memory);
+        for (PromptCommandDto prevPrompt : promptList) {
+            messages[mIndex++] = new ChatGptMessage(prevPrompt.role(), prevPrompt.content());
+        }
         if (prompt != null && !prompt.equals(""))
             messages[mIndex++] = new ChatGptMessage("user", prompt);
 
@@ -170,13 +182,32 @@ public class ChatGptClientUtil {
         return eventStream;
     }
 
-    public SseEmitter enterPromptForSse(String prompt) throws JsonProcessingException {
+    /**
+     * enterPromptForSse <br/><br/>
+     *
+     * SSE를 통해서 ChatGPT와 스트림으로 데이터를 통신한다.
+     * @param prompt
+     * @param memory
+     * @param promptList
+     * @return Object[2] : <br/>
+     *      Object[0] = SseEmitter, <br/>
+     *      Object[1] = String(Output)
+     * @throws JsonProcessingException
+     */
+    public Object[] enterPromptForSse(String prompt, String memory, List<PromptCommandDto> promptList) throws JsonProcessingException {
         int mSize = 1;
         if (prompt != null && !prompt.equals("")) mSize++;
+        if (memory != null && !memory.equals("")) mSize++;
+        mSize += promptList.size();
         ChatGptMessage[] messages = new ChatGptMessage[mSize];
 
         int mIndex = 0;
         messages[mIndex++] = new ChatGptMessage("system", PROMPT_FOR_SETTING);
+        if (memory != null && !memory.equals(""))
+            messages[mIndex++] = new ChatGptMessage("system", memory);
+        for (PromptCommandDto prevPrompt : promptList) {
+            messages[mIndex++] = new ChatGptMessage(prevPrompt.role(), prevPrompt.content());
+        }
         if (prompt != null && !prompt.equals(""))
             messages[mIndex++] = new ChatGptMessage("user", prompt);
 
@@ -186,13 +217,14 @@ public class ChatGptClientUtil {
         ChatGptRequestDtoForStream chatGptRequestDtoForStream = new ChatGptRequestDtoForStream(model, messages, 1, 1024, true);
 
         String input = mapper.writeValueAsString(chatGptRequestDtoForStream);
+        StringBuilder outputSB = new StringBuilder();
 
         SseEmitter emitter = new SseEmitter((long) (5 * 60 * 1000));
         WebClient client = WebClient.create();
 
         client.post().uri(uri)
                 .header("Content-Type", "application/json")
-                .header("Authorization", key)
+                .header("Authorization", "Bearer " + key)
                 .body(BodyInserters.fromValue(chatGptRequestDtoForStream))
                 .exchangeToFlux(response -> response.bodyToFlux(String.class))
                 .doOnNext(line -> {
@@ -201,15 +233,24 @@ public class ChatGptClientUtil {
                             emitter.complete();
                             return;
                         }
-                        emitter.send(SseEmitter.event().data(line));
+                        ChatGptForStreamResponseDto chatGptForStreamResponseDto = mapper.readValue(line, ChatGptForStreamResponseDto.class);
+                        String answer = chatGptForStreamResponseDto.choices()[chatGptForStreamResponseDto.choices().length - 1].delta().content();
+                        if (answer != null) {
+                            outputSB.append(answer);
+                            emitter.send(SseEmitter.event().data(line));
+                        }
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 })
                 .doOnError(emitter::completeWithError)
                 .doOnComplete(emitter::complete)
-                .subscribe();
-        return emitter;
+                .blockLast();
+
+        Object[] result = new Object[2];
+        result[0] = emitter;
+        result[1] = outputSB.toString();
+        return result;
     }
 
 }
