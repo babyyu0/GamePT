@@ -4,6 +4,8 @@ import com.a405.gamept.game.dto.command.ActCommandDto;
 import com.a405.gamept.game.dto.command.EventCommandDto;
 import com.a405.gamept.game.dto.command.PromptResultForStreamGetCommandDto;
 import com.a405.gamept.game.dto.command.PromptResultGetCommandDto;
+import com.a405.gamept.game.dto.response.ActGetResponseDto;
+import com.a405.gamept.game.dto.response.EventGetResponseDto;
 import com.a405.gamept.game.dto.response.PromptResultGetResponseDto;
 import com.a405.gamept.game.entity.Act;
 import com.a405.gamept.game.entity.Event;
@@ -177,6 +179,33 @@ public class EventServiceImpl implements EventService {
         Event occuredEvent = occurRandomEvent(eventList);
         String newPrompt = promptResultForStreamGetCommandDto.prompt() + occuredEvent.getPrompt();
         return PromptResultForStreamGetCommandDto.from(promptResultForStreamGetCommandDto, newPrompt);
+    }
+
+    @Override
+    public EventGetResponseDto checkEventInPromptForStream(String promptOutput, Game game) {
+        // 스토리 코드에 따른 이벤트 리스트
+        List<Event> eventList = findAllEventByStoryCode(game.getStoryCode());
+
+        // 텍스트에서 가장 마지막에 등장한 이벤트의 인덱스
+        int eventIndex = findLastEventInText(eventList, promptOutput);
+
+        // 이벤트를 찾지 못한 경우,
+        if (eventIndex == -1) {
+            return null;
+        }
+
+        // 최종적으로 Response에 Event를 추가
+        gameRedisRepository.save(game.toBuilder()
+                .eventCnt(game.getEventCnt() + 1)
+                .eventRate(0)
+                .build());
+        Event occuredEvent = eventList.get(eventIndex);
+        ArrayList<ActGetResponseDto> acts = new ArrayList<>();
+        for (Act act : occuredEvent.getActList()) {
+            acts.add(ActGetResponseDto.of(act));
+        }
+
+        return EventGetResponseDto.of(occuredEvent, acts);
     }
 
     /**
