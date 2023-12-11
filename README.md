@@ -37,7 +37,7 @@ GamePT는 플레이어가 입력한 대화에 맞춰 상호작용이 일어납�
   🗲 MySQL    🗲 Redis
 ```
 
-**🗃️ Infra**
+**👷 Infra**
 ```
   🗲 Amazon EC2 (ubuntu)    🗲 Docker    🗲 Jenkins    🗲 NginX
 ```
