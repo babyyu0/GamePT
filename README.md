@@ -2,11 +2,6 @@
   <h1 style="display:'inline-block'"> <img src='https://github.com/babyyu0/GamePT/blob/master/document/img/logo.png' width=280vw></h1>
 </div>
 
-<h3>
-    Always Nearby You!&nbsp;
-    <img src="https://em-content.zobj.net/source/apple/354/globe-showing-asia-australia_1f30f.png" width=16 height=16 alt="지구본 아이콘" />
-</h3>
-
 판타지 세계로 여행을 떠나보고 싶다고 생각하신 적 없으신가요?  
 게임에서 마음대로 행동하고 싶으셨던 적 없으신가요?  
 ChatGPT와 함께하는 신비로운 탐험, **GamePT**는 가능합니다!
